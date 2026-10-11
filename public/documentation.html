@@ -41,9 +41,9 @@
   <main>
     <section>
       <h2>ข้อมูลตัวละคร</h2>
-      <p>เซิร์ฟเวอร์จะพยายามโหลดข้อมูลตัวละครจาก Honkai: Star Rail API เมื่อเริ่มทำงาน:</p>
+      <p>เซิร์ฟเวอร์จะพยายามโหลดข้อมูลตัวละครจาก HSR-API เมื่อเริ่มทำงาน:</p>
       <ul>
-        <li>API หลัก: <a href="https://honkai-starrail-api.vercel.app/api/v1/characters" target="_blank" rel="noopener noreferrer">honkai-starrail-api.vercel.app/api/v1/characters</a></li>
+        <li>API หลัก: <a href="https://hsr-api.vercel.app/api/v1/characters" target="_blank" rel="noopener noreferrer">hsr-api.vercel.app/api/v1/characters</a> จาก <a href="https://github.com/ajcastan0103/HSR-API" target="_blank" rel="noopener noreferrer">ajcastan0103/HSR-API</a></li>
         <li>เซิร์ฟเวอร์แปลงข้อมูลที่ได้รับเป็น ID, ชื่อ, ระดับดาว, สาย (Path), ธาตุ (Element) และ URL รูปภาพ ก่อนเก็บไว้ในหน่วยความจำเพื่อให้หน้าเว็บเรียกใช้</li>
         <li>หากเรียก API ไม่สำเร็จ จะใช้ข้อมูลสำรองจาก <code>characters.json</code> ที่อยู่ในโฟลเดอร์หลักของโปรเจกต์</li>
       </ul>
@@ -51,7 +51,7 @@
 
     <section>
       <h2>รูปภาพตัวละคร</h2>
-      <p>หน้า Characters ใช้ URL รูปภาพที่มากับข้อมูลตัวละครจาก API (ช่อง <code>icon</code> หรือ <code>image</code>) หรือจาก <code>characters.json</code> เมื่อใช้ข้อมูลสำรอง รูปภาพจึงอาจถูกโหลดจากเซิร์ฟเวอร์ภายนอกตาม URL ของแต่ละรายการ</p>
+      <p>หน้า Characters ใช้ URL รูปภาพที่มากับข้อมูลตัวละครจาก API (ช่อง <code>img</code>) หรือจาก <code>characters.json</code> เมื่อใช้ข้อมูลสำรอง รูปภาพจึงอาจถูกโหลดจากเซิร์ฟเวอร์ภายนอกตาม URL ของแต่ละรายการ</p>
     </section>
 
     <section>
