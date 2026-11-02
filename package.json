@@ -11,6 +11,7 @@
     "node": "24.x"
   },
   "dependencies": {
-    "express": "^4.22.3"
+    "express": "^4.22.3",
+    "starrail.js": "^1.9.10"
   }
 }

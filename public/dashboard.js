@@ -5,25 +5,14 @@
 let charactersById = new Map();
 let allCharacters = [];
 
-// ---------- TODO 5: โหลด 3 endpoint พร้อมกันด้วย Promise.all() ----------
+// ---------- TODO 5: โหลดข้อมูลตัวละคร ----------
 async function loadDashboard() {
   const algo = document.getElementById('algo').value;
   try {
-    const [cRes, wRes, hRes] = await Promise.all([
-      fetch(`/characters?sort=${algo}`),
-      fetch('/watchlist'),
-      fetch('/history'),
-    ]);
-
-    if (!cRes.ok || !wRes.ok || !hRes.ok) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่สำเร็จ');
-
+    const cRes = await fetch(`/characters?sort=${algo}`);
+    if (!cRes.ok) throw new Error('เซิร์ฟเวอร์ตอบข้อมูลไม่สำเร็จ');
     const characters = await cRes.json();
-    const watchlist  = await wRes.json();
-    const history    = await hRes.json();
-
     renderCharacters(characters);
-    renderWatchlist(watchlist);
-    renderHistory(history);
     showError('');
   } catch (err) {
     showError('โหลดข้อมูลไม่สำเร็จ: ' + err.message);
@@ -119,19 +108,6 @@ document.addEventListener('keydown', event => {
 document.getElementById('search').addEventListener('input', filterCharacters);
 document.getElementById('rarityFilter').addEventListener('change', filterCharacters);
 
-function renderWatchlist(res) {
-  document.getElementById('queueSize').textContent = res.size;
-  document.getElementById('watchlist').innerHTML = res.size === 0
-    ? '<li class="empty">คิวว่าง</li>'
-    : res.items.map((c, i) => `<li>${i + 1}. ${c.name}</li>`).join('');
-}
-
-function renderHistory(res) {
-  document.getElementById('history').innerHTML = res.size === 0
-    ? '<li class="empty">ยังไม่มีประวัติ</li>'
-    : res.history.map(h => `<li><b>${h.action}</b> ${h.character.name} <span>${h.time}</span></li>`).join('');
-}
-
 // ---------- actions ----------
 async function addToWatchlist(id) {
   try {
@@ -141,27 +117,11 @@ async function addToWatchlist(id) {
       body: JSON.stringify({ id }),
     });
     if (!res.ok) throw new Error((await res.json()).error);
-    await loadDashboard();
-  } catch (err) {
-    showError(err.message);
-  }
-}
-
-async function processQueue() {
-  try {
-    const res = await fetch('/watchlist/process', { method: 'DELETE' });
-    if (!res.ok) throw new Error((await res.json()).error);
-    await loadDashboard();
-  } catch (err) {
-    showError(err.message);
-  }
-}
-
-async function undo() {
-  try {
-    const res = await fetch('/undo', { method: 'POST' });
-    if (!res.ok) throw new Error((await res.json()).error);
-    await loadDashboard();
+    const { message } = await res.json();
+    const notice = document.getElementById('notice');
+    notice.innerHTML = `${escapeHtml(message)} · <a href="/teams.html">ดูทีมใน Teams</a>`;
+    notice.style.display = 'block';
+    showError('');
   } catch (err) {
     showError(err.message);
   }

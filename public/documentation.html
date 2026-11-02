@@ -35,6 +35,8 @@
     <nav class="header-nav" aria-label="เมนูหลัก">
       <a href="/documentation.html" aria-current="page">Documentation</a>
       <a href="/dashboard.html#character-section">Characters</a>
+      <a href="/teams.html">Teams</a>
+      <a href="/relic.html">Relic</a>
     </nav>
   </header>
 
@@ -56,12 +58,31 @@
 
     <section>
       <h2>ข้อมูลคิวและประวัติ</h2>
-      <p>คิวจัดทีมและประวัติการเพิ่ม/เลือกตัวละครไม่ได้ดึงจาก API ภายนอก แต่สร้างและเก็บไว้ในหน่วยความจำของเซิร์ฟเวอร์ขณะทำงาน ข้อมูลเหล่านี้จะเริ่มใหม่เมื่อเซิร์ฟเวอร์ปิดหรือเริ่มทำงานอีกครั้ง</p>
+      <p>หน้า Teams ใช้จัดทีมตัวละครได้ 4 ช่อง และใส่ Relic ได้ 6 ช่องใต้ตัวละครแต่ละตัว ได้แก่ Head, Hands, Body, Feet, Link Rope และ Planar Sphere โดยเลือกจากแผงด้านล่างหรือจับลากไปวาง Relic ต้องตรงกับประเภทช่องและเลือกซ้ำไม่ได้ มีสถานะกำลังโหลด, ว่าง, สำเร็จ และผิดพลาด พร้อมปุ่มลองใหม่เมื่อโหลดข้อมูลไม่สำเร็จ ทีมและประวัติการเปลี่ยนทีมเก็บไว้ในหน่วยความจำของเซิร์ฟเวอร์ ข้อมูลจะเริ่มใหม่เมื่อเซิร์ฟเวอร์ปิดหรือเริ่มทำงานอีกครั้ง</p>
       <ul>
-        <li><code>/watchlist</code> อ่านคิว, <code>POST /watchlist</code> เพิ่มตัวละคร และ <code>DELETE /watchlist/process</code> นำตัวละครออกจากคิว</li>
+        <li><code>GET /team</code> อ่านทีม และ <code>PUT /team</code> บันทึกตัวละคร 4 ช่อง โดยส่ง <code>{"ids":["id-1",null,"id-3",null]}</code>; หนึ่งทีมเลือกตัวละครซ้ำไม่ได้</li>
+        <li>หน้า Characters แสดงคิวตามลำดับ FIFO: <code>GET /watchlist</code> อ่านคิว, <code>POST /watchlist</code> เพิ่มตัวละคร และ <code>DELETE /watchlist/process</code> ประมวลผลตัวถัดไป พร้อมสถานะกำลังโหลด, คิวว่าง, สำเร็จ และผิดพลาด</li>
         <li><code>/history</code> อ่านประวัติ และ <code>POST /undo</code> ย้อนการกระทำล่าสุด</li>
         <li><code>/characters?sort=selection</code> อ่านรายการตัวละครที่เรียงแล้ว โดยเลือกอัลกอริทึมได้เป็น <code>selection</code>, <code>insertion</code> หรือ <code>bubble</code></li>
       </ul>
+    </section>
+
+    <section>
+      <h2>Graph และประสิทธิภาพของ DSA</h2>
+      <p>หน้า Characters เป็น JavaScript ฝั่งเบราว์เซอร์ (โปรเจกต์นี้ไม่ได้ใช้ React) ส่วนการโหลดและตรวจสอบข้อมูล รวมถึง Queue/Stack อยู่ฝั่ง Express ใน <code>server.js</code> และกราฟ UI อยู่ใน <code>public/dashboard-experience.js</code></p>
+      <ul>
+        <li><strong>Graph:</strong> สร้างกราฟสองฝั่งจากตัวละครและโหนดคุณลักษณะ Path/Element โดยเชื่อมตัวละครกับคุณลักษณะที่มีในข้อมูลจริง จากตัวละครที่เปิดรายละเอียดใช้ BFS ไม่เกิน 2 ระดับเพื่อค้นตัวละครที่มี Path หรือธาตุตรงกัน แล้วให้เปิดดูต่อได้ กราฟมี V โหนดและ E เส้นเชื่อม; สร้างกราฟและ BFS ใช้ O(V+E) เวลาและ O(V+E) หน่วยความจำ โดย BFS จำกัดที่ความสัมพันธ์ตรงเพื่อไม่แสดงความเชื่อมโยงทางอ้อมเป็นความเหมือนโดยตรง</li>
+        <li><strong>Queue:</strong> ใช้ doubly linked list ใน Express ทำ enqueue, dequeue และคืนรายการไปหัวคิวเมื่อ undo ได้ O(1); ก่อนหน้าใช้ array <code>shift()</code>/<code>unshift()</code> ซึ่งต้องเลื่อนสมาชิก O(n) การแสดงคิวยังคงใช้ O(n) ตามจำนวนรายการ</li>
+        <li><strong>Stack:</strong> เก็บประวัติการแก้ไขทีม/คิวด้วย push/pop ซึ่งเฉลี่ย O(1); แสดงประวัติกลับลำดับใช้ O(n)</li>
+        <li><strong>Map/Set:</strong> ฝั่ง Express ใช้ Map จัดทำดัชนี Relic ตาม ID (สร้าง O(n), ค้นหาเฉลี่ย O(1)) และ Set ตรวจ ID ซ้ำ (O(n) โดยเฉลี่ยทั้งชุด) ช่วยให้ตรวจคำขอบันทึกทีมได้โดยไม่ค้น catalog ซ้ำทีละรายการ</li>
+        <li><strong>Sorting/Filtering:</strong> อัลกอริทึม Selection, Insertion และ Bubble ใน Express มีเวลา O(n²); การกรองข้อมูลที่โหลดแล้วบน browser ใช้ O(n) ต่อการเปลี่ยนตัวกรอง และการเรียง Relic ใช้ O(r log r)</li>
+      </ul>
+      <p>หน้าหลักและหน้าเลือกทีม/Relic แสดง loading, empty, error และ success ตามสถานะการโหลดหรือการบันทึก พร้อม retry เมื่อโหลดล้มเหลว เพื่อให้ผู้ใช้ทราบผลและทำต่อได้โดยไม่ต้อง reload หน้า</p>
+    </section>
+
+    <section>
+      <h2>ข้อมูล Relic</h2>
+      <p>หน้า Relic แสดงรายการพร้อมชื่อ ตำแหน่ง ระดับดาว รูปภาพ รายละเอียด และโบนัสเซ็ต โดยอ่านข้อมูลจาก cache ของ <code>starrail.js</code> ผ่าน <code>GET /relics</code> ซึ่งส่งจำนวนรายการและข้อมูลในฟิลด์ <code>data</code></p>
     </section>
   </main>
 </body>

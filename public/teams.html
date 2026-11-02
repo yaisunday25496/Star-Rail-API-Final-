@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="th" data-page="teams">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teams — Honkai: Star Rail Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, "TH Sarabun New", sans-serif; margin: 0; background: #0F172A; color: #F8FAFC; }
+    header { background: #1E1B4B; color: #fff; padding: 16px 24px; border-bottom: 2px solid #6366F1; }
+    header h1 { margin: 0; font-size: 20px; color: #E0E7FF; }
+    header p { margin: 4px 0 0; font-size: 13px; color: #A5B4FC; }
+    .header-nav { display: flex; gap: 16px; margin-top: 12px; }
+    .header-nav a { color: #E0E7FF; font-size: 13px; font-weight: bold; text-decoration: none; border-bottom: 1px solid #818CF8; padding-bottom: 3px; }
+    .header-nav a:hover, .header-nav a:focus { color: #fff; border-color: #fff; }
+    .layout { max-width: 1180px; margin: 0 auto; padding: 20px 24px; }
+    .formation { padding: 18px; border: 1px solid #334155; border-radius: 10px; background: #1E293B; }
+    .formation-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .formation-heading h2 { margin: 0; color: #E0E7FF; font-size: 20px; }
+    .formation-heading p { margin: 5px 0 0; color: #94A3B8; font-size: 13px; }
+    .team-count { color: #A5B4FC; font-size: 13px; white-space: nowrap; }
+    #error { display: none; background: #7F1D1D; color: #FCA5A5; padding: 10px; margin: 0 24px; border-radius: 6px; font-size: 13px; }
+    .retry-load { margin: 8px 24px; }
+    .retry-load[hidden] { display: none; }
+    .team-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .team-member { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+    .team-slot { position: relative; display: flex; min-width: 0; aspect-ratio: .72; align-items: center; justify-content: center; overflow: hidden; border: 1px dashed #64748B; border-radius: 10px; background: linear-gradient(145deg, #172033, #0F172A); color: #94A3B8; cursor: pointer; }
+    .team-slot:hover, .team-slot:focus, .team-slot.drag-over { border-color: #A5B4FC; outline: none; background-color: #242b45; }
+    .team-slot.filled { display: block; aspect-ratio: auto; overflow: visible; border: 0; background: transparent; }
+    .team-slot.filled:hover, .team-slot.filled:focus, .team-slot.filled.drag-over { border: 0; background: transparent; }
+    .character-portrait { position: relative; width: 100%; aspect-ratio: .72; overflow: hidden; border: 1px solid #6366F1; border-radius: 10px; background: #171923; }
+    .slot-index { position: absolute; top: 9px; left: 10px; z-index: 2; display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid #ffffff60; border-radius: 50%; background: #0F172A99; color: #fff; font-size: 12px; }
+    .slot-placeholder { display: grid; justify-items: center; gap: 9px; padding: 10px; text-align: center; }
+    .slot-plus { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid #475569; border-radius: 10px; color: #A5B4FC; font-size: 27px; }
+    .slot-placeholder span:last-child { font-size: 12px; }
+    .character-portrait > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .slot-shade { position: absolute; inset: 35% 0 0; background: linear-gradient(transparent, #090a10ed); }
+    .slot-name { position: absolute; right: 8px; bottom: 12px; left: 8px; z-index: 1; overflow: hidden; color: #fff; font-size: clamp(12px, 1.8vw, 18px); font-weight: 700; text-align: center; text-overflow: ellipsis; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+    .slot-remove { position: absolute; top: 7px; right: 7px; z-index: 3; width: 30px; height: 30px; padding: 0; border: 1px solid #ffffff75; border-radius: 50%; background: #0F172ACC; color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+    .slot-remove:hover { background: #B91C1C; }
+    .formation-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+    .formation-actions p { margin: 0; color: #94A3B8; font-size: 12px; }
+    #teamStatus[data-state="success"] { color: #86EFAC; }
+    #teamStatus[data-state="error"] { color: #FCA5A5; }
+    #teamStatus[data-state="empty"] { color: #FCD34D; }
+    #teamStatus[data-state="loading"] { color: #A5B4FC; }
+    button { font: inherit; padding: 8px 13px; border-radius: 7px; border: 1px solid #475569; background: #0F172A; color: #F8FAFC; cursor: pointer; }
+    button.primary { background: #4F46E5; color: #fff; border-color: #6366F1; }
+    button.primary:hover:not(:disabled) { background: #4338CA; }
+    button:disabled { cursor: not-allowed; opacity: .48; }
+    .picker { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+    .picker[hidden] { display: none; }
+    .picker-backdrop { position: absolute; inset: 0; pointer-events: none; background: #02061740; }
+    .picker-sheet { position: absolute; right: 0; bottom: 0; left: 0; display: flex; width: min(100%, 1100px); max-height: 45vh; max-height: 45dvh; flex-direction: column; margin: 0 auto; padding: 14px 22px 18px; border: 1px solid #475569; border-bottom: 0; border-radius: 18px 18px 0 0; background: #1E293B; box-shadow: 0 -18px 60px #0007; pointer-events: auto; animation: slide-up .22s ease-out; }
+    @keyframes slide-up { from { transform: translateY(35px); opacity: .7; } to { transform: translateY(0); opacity: 1; } }
+    .picker-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .picker-heading h2 { margin: 0; color: #E0E7FF; font-size: 18px; }
+    .picker-heading p { margin: 4px 0 0; color: #94A3B8; font-size: 12px; }
+    .picker-close { padding: 5px 11px; font-size: 20px; }
+    .toolbar { display: flex; gap: 9px; margin-bottom: 12px; }
+    input, select { min-width: 0; padding: 9px 11px; border: 1px solid #475569; border-radius: 7px; background: #0F172A; color: #F8FAFC; font: inherit; }
+    input { flex: 1; }
+    .character-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; overflow-y: auto; padding: 2px 3px 8px 0; }
+    .character-card { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px; border: 1px solid #334155; border-radius: 8px; background: #172033; color: #F8FAFC; text-align: left; }
+    .character-card:hover:not(:disabled), .character-card:focus-visible { border-color: #818CF8; outline: none; background: #262e49; }
+    .character-card.selected { border-color: #6366F1; background: #29264b; }
+    .character-card:disabled { cursor: default; opacity: .65; }
+    .character-card img { width: 48px; height: 48px; flex: 0 0 auto; border-radius: 6px; background: #0F172A; object-fit: cover; }
+    .character-info { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+    .character-info strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .character-info span { color: #94A3B8; font-size: 10px; }
+    .character-info .rarity { color: #F59E0B; }
+    .relic-slots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+    .relic-entry { position: relative; min-width: 0; }
+    .relic-slot { display: flex; width: 100%; min-width: 0; min-height: 46px; align-items: center; justify-content: center; gap: 3px; overflow: hidden; padding: 3px; border: 1px dashed #64748B; border-radius: 6px; background: #0F172A; color: #94A3B8; font-size: 9px; text-align: center; }
+    .relic-slot:hover, .relic-slot:focus, .relic-slot.drag-over { border-color: #A5B4FC; outline: none; background: #242b45; }
+    .relic-slot.filled { flex-direction: column; border-style: solid; border-color: #475569; color: #E2E8F0; cursor: grab; }
+    .relic-slot.filled img { width: 25px; height: 25px; object-fit: contain; }
+    .relic-slot span { display: -webkit-box; max-width: 100%; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+    .relic-remove { position: absolute; top: 1px; right: 1px; z-index: 2; display: grid; width: 18px; height: 18px; place-items: center; padding: 0; border: 1px solid #ffffff60; border-radius: 50%; background: #0F172ACC; color: #fff; font-size: 13px; line-height: 1; }
+    .relic-remove:hover { background: #B91C1C; }
+    .relic-card { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px; border: 1px solid #334155; border-radius: 8px; background: #172033; color: #F8FAFC; text-align: left; cursor: grab; }
+    .relic-card:hover, .relic-card:focus-visible { border-color: #818CF8; outline: none; background: #262e49; }
+    .relic-card img { width: 48px; height: 48px; flex: 0 0 auto; border-radius: 6px; background: #0F172A; object-fit: contain; }
+    .relic-info { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+    .relic-info strong, .relic-info span { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .relic-info span { color: #94A3B8; font-size: 10px; }
+    .relic-info .rarity { color: #F59E0B; }
+    .empty-results, .loading { grid-column: 1 / -1; padding: 24px 8px; color: #94A3B8; text-align: center; }
+    @media (max-width: 700px) {
+      header { padding: 16px; }
+      .layout { padding: 14px; }
+      .team-slots { gap: 7px; }
+      .formation { padding: 12px; }
+      .formation-heading { align-items: start; flex-direction: column; }
+      .slot-index { top: 5px; left: 5px; width: 22px; height: 22px; }
+      .slot-name { right: 3px; bottom: 8px; left: 3px; font-size: 11px; }
+      .slot-remove { top: 4px; right: 4px; width: 25px; height: 25px; font-size: 17px; }
+      .slot-placeholder span:last-child { font-size: 10px; }
+      .picker-sheet { max-height: 50vh; max-height: 50dvh; padding: 12px 13px 15px; }
+      .character-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+      .formation-actions { align-items: start; flex-direction: column; }
+    }
+    @media (max-width: 420px) {
+      .character-grid { grid-template-columns: 1fr; }
+      .toolbar { flex-direction: column; }
+      .toolbar input, .toolbar select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Honkai: Star Rail Dashboard</h1>
+    <p>เลือกตัวละครและจัดตำแหน่งทีม 4 ช่อง</p>
+    <nav class="header-nav" aria-label="เมนูหลัก">
+      <a href="/documentation.html">Documentation</a>
+      <a href="/dashboard.html#character-section">Characters</a>
+      <a href="/teams.html" aria-current="page">Teams</a>
+      <a href="/relic.html">Relic</a>
+    </nav>
+  </header>
+
+  <div id="error" role="alert"></div>
+  <button id="retryLoad" class="retry-load" type="button" hidden>ลองโหลดข้อมูลอีกครั้ง</button>
+
+  <main class="layout">
+    <section class="formation" aria-labelledby="teamHeading">
+      <div class="formation-heading">
+        <div>
+          <h2 id="teamHeading">จัดทีมตัวละคร</h2>
+          <p>จัดทีม 4 ตัวละคร พร้อมช่อง Relic 6 ช่องใต้ตัวละครแต่ละตัว</p>
+        </div>
+        <span class="team-count"><b id="teamCount">0</b> / 4 ตัวละคร</span>
+      </div>
+      <div id="teamSlots" class="team-slots" aria-live="polite"></div>
+      <div class="formation-actions">
+        <p id="teamStatus" role="status" aria-live="polite">กำลังโหลดข้อมูลทีม...</p>
+        <button id="openPicker" class="primary" type="button" disabled>เลือกตัวละคร</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="characterPicker" class="picker" hidden>
+    <div class="picker-backdrop" aria-hidden="true"></div>
+    <section class="picker-sheet" role="dialog" aria-labelledby="pickerHeading">
+      <div class="picker-heading">
+        <div>
+          <h2 id="pickerHeading">เลือกตัวละคร</h2>
+          <p id="pickerHint">คลิกตัวละครหรือจับลากไปยังช่องทีม</p>
+        </div>
+        <button id="closePicker" class="picker-close" type="button" aria-label="ปิด">×</button>
+      </div>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="ค้นหาชื่อตัวละคร..." aria-label="ค้นหาชื่อตัวละคร">
+        <select id="rarityFilter" aria-label="กรองระดับดาว">
+          <option value="all">ทุกระดับดาว</option>
+          <option value="5">5 ดาว</option>
+          <option value="4">4 ดาว</option>
+        </select>
+      </div>
+      <div id="characters" class="character-grid" aria-live="polite">
+        <div class="loading">กำลังโหลดตัวละคร...</div>
+      </div>
+    </section>
+  </div>
+
+  <div id="relicPicker" class="picker" hidden>
+    <div class="picker-backdrop" aria-hidden="true"></div>
+    <section class="picker-sheet" role="dialog" aria-labelledby="relicPickerHeading">
+      <div class="picker-heading">
+        <div>
+          <h2 id="relicPickerHeading">เลือก Relic</h2>
+          <p id="relicPickerHint">เลือก Relic หรือจับลากไปยังช่องที่ต้องการ</p>
+        </div>
+        <button id="closeRelicPicker" class="picker-close" type="button" aria-label="ปิด">×</button>
+      </div>
+      <div class="toolbar">
+        <input id="relicSearch" type="search" placeholder="ค้นหาชื่อ Relic หรือเซ็ต..." aria-label="ค้นหา Relic">
+        <select id="relicRarityFilter" aria-label="กรองระดับดาว Relic">
+          <option value="all">ทุกระดับดาว</option>
+          <option value="5">5 ดาว</option>
+          <option value="4">4 ดาว</option>
+          <option value="3">3 ดาว</option>
+          <option value="2">2 ดาว</option>
+          <option value="1">1 ดาว</option>
+        </select>
+      </div>
+      <div id="relics" class="character-grid" aria-live="polite">
+        <div class="loading">กำลังโหลด Relic...</div>
+      </div>
+    </section>
+  </div>
+
+  <script src="teams.js"></script>
+</body>
+</html>
