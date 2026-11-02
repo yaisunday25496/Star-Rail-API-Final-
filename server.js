@@ -1,6 +1,6 @@
 // =====================================================================
 // 801201 Week 8 — Stack + External REST API
-// Express เป็นตัวกลาง (proxy) ระหว่าง browser กับ Honkai: Star Rail API
+// Express เป็นตัวกลาง (proxy) ระหว่าง browser กับ HSR-API
 // =====================================================================
 const express = require('express');
 const fs = require('fs');
@@ -66,9 +66,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // ---------------------------------------------------------------------
-// TODO 1 — ดึงข้อมูลจาก Honkai: Star Rail API แล้ว cache ไว้
+// TODO 1 — ดึงข้อมูลจาก HSR-API แล้ว cache ไว้
 // ---------------------------------------------------------------------
-const API_URL = 'https://honkai-starrail-api.vercel.app/api/v1/characters';
+const API_URL = 'https://hsr-api.vercel.app/api/v1/characters';
 let characters = [];              // <-- cache อยู่ใน memory
 
 async function loadCharacters() {
@@ -83,9 +83,9 @@ async function loadCharacters() {
       rarity: Number(c.rarity) || 4,  // ระดับดาว (5 ดาว หรือ 4 ดาว)
       path: c.path || 'Unknown',      // สาย เช่น Destruction, Hunt, Harmony
       element: c.element || 'Unknown',// ธาตุ เช่น Fire, Ice, Quantum
-      image: c.icon || c.image || '',
+      image: c.img || c.icon || c.image || '',
     }));
-    console.log(`✅ โหลดจาก Honkai: Star Rail API สำเร็จ: ${characters.length} ตัวละคร`);
+    console.log(`✅ โหลดจาก HSR-API สำเร็จ: ${characters.length} ตัวละคร`);
   } catch (err) {
     // ถ้าเน็ตล่ม ให้ใช้ไฟล์สำรอง
     if (fs.existsSync(fallbackPath)) {
@@ -310,11 +310,20 @@ app.put('/team', async (req, res) => {
       )) {
         return res.status(400).json({ error: 'Relic ไม่ตรงกับประเภทช่อง หรือช่องตัวละครยังว่าง' });
       }
+<<<<<<< HEAD
       const selectedRelicIds = nextRelics.flatMap(row =>
         row.filter(Boolean).map(relic => String(relic.id))
       );
       if (new Set(selectedRelicIds).size !== selectedRelicIds.length) {
         return res.status(400).json({ error: 'เลือก Relic ซ้ำในทีมไม่ได้' });
+=======
+      const hasDuplicateRelic = nextRelics.some(row => {
+        const selectedRelicIds = row.filter(Boolean).map(relic => String(relic.id));
+        return new Set(selectedRelicIds).size !== selectedRelicIds.length;
+      });
+      if (hasDuplicateRelic) {
+        return res.status(400).json({ error: 'ตัวละครเดียวกันใส่ Relic ชิ้นเดิมซ้ำไม่ได้' });
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
       }
     } catch (error) {
       relicCatalogPromise = null;

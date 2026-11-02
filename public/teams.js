@@ -2,7 +2,10 @@ const TEAM_SIZE = 4;
 const RELIC_SLOT_TYPES = ['HEAD', 'HAND', 'BODY', 'FOOT', 'OBJECT', 'NECK'];
 const RELIC_SLOT_NAMES = ['Head', 'Hands', 'Body', 'Feet', 'Link Rope', 'Planar Sphere'];
 const RELICS_PER_CHARACTER = RELIC_SLOT_TYPES.length;
+<<<<<<< HEAD
 const TEAM_RELIC_COPIES_KEY = 'starrail.teams.relicCopies.v1';
+=======
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
 let allCharacters = [];
 let allRelics = [];
 let currentTeam = Array(TEAM_SIZE).fill(null);
@@ -27,6 +30,7 @@ function escapeHtml(value) {
   }[character]));
 }
 
+<<<<<<< HEAD
 function getRelicIds(relicRows) {
   return relicRows.map(row => row.map(relic => relic ? String(relic.id) : null));
 }
@@ -90,6 +94,8 @@ function restoreTeamRelicCopies(team, serverRelicRows) {
   return restoredRelics;
 }
 
+=======
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
   const result = await response.json();
@@ -119,12 +125,19 @@ async function loadTeamPage() {
     allCharacters = characters.data;
     allRelics = relicCatalog.data;
     currentTeam = result.team;
+<<<<<<< HEAD
     const serverRelics = Array.from({ length: TEAM_SIZE }, (_, teamIndex) =>
+=======
+    currentRelics = Array.from({ length: TEAM_SIZE }, (_, teamIndex) =>
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
       Array.from({ length: RELICS_PER_CHARACTER }, (_, relicIndex) =>
         result.relics?.[teamIndex]?.[relicIndex] || null
       )
     );
+<<<<<<< HEAD
     currentRelics = restoreTeamRelicCopies(currentTeam, serverRelics);
+=======
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
     isReady = true;
     document.getElementById('retryLoad').hidden = true;
     renderTeam();
@@ -267,22 +280,36 @@ function renderRelics() {
   document.getElementById('relics').innerHTML = filtered.length === 0
     ? '<div class="empty-results">ไม่พบ Relic ที่ตรงกับการค้นหา</div>'
     : filtered.map(relic => {
+<<<<<<< HEAD
       const selectedAt = currentRelics.findIndex((row, teamIndex) =>
         row.some((item, relicIndex) =>
           item && String(item.id) === String(relic.id) &&
           (teamIndex !== targetSlot || relicIndex !== targetRelicSlot)
         )
+=======
+      const selectedAt = currentRelics[targetSlot].findIndex((item, relicIndex) =>
+        item && String(item.id) === String(relic.id) && relicIndex !== targetRelicSlot
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
       );
       const selected = selectedAt !== -1;
       return `
       <button class="relic-card${selected ? ' selected' : ''}" type="button" data-relic-id="${escapeHtml(relic.id)}"
+<<<<<<< HEAD
         draggable="${!isSaving}" aria-label="${escapeHtml(relic.name)}, ${escapeHtml(relic.set.name)}${selected ? ', ใส่อยู่แล้ว เลือกซ้ำได้' : ''}"
         ${isSaving ? 'disabled' : ''}>
+=======
+        draggable="${!selected && !isSaving}" aria-label="${escapeHtml(relic.name)}, ${escapeHtml(relic.set.name)}${selected ? ', ใส่อยู่แล้ว' : ''}"
+        ${selected || isSaving ? 'disabled' : ''}>
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
         ${relic.icon ? `<img src="${escapeHtml(relic.icon)}" alt="" loading="lazy">` : ''}
         <span class="relic-info">
           <strong>${escapeHtml(relic.name)}</strong>
           <span>${escapeHtml(relic.set.name)} · ${escapeHtml(relic.type)}</span>
+<<<<<<< HEAD
           <span class="rarity">${'★'.repeat(Math.max(0, Number(relic.stars) || 0))}${selected ? ' · ใส่อยู่แล้ว (เลือกซ้ำได้)' : ''}</span>
+=======
+          <span class="rarity">${'★'.repeat(Math.max(0, Number(relic.stars) || 0))}${selected ? ' · ใส่อยู่แล้ว' : ''}</span>
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
         </span>
       </button>
     `;
@@ -338,6 +365,7 @@ async function saveTeam(nextTeam, nextRelics, closeAfterSave) {
   document.getElementById('teamStatus').dataset.state = 'loading';
   document.getElementById('openPicker').disabled = true;
   renderCharacters();
+<<<<<<< HEAD
   let previousRelicCopies = null;
   let capturedPreviousRelicCopies = false;
 
@@ -345,16 +373,28 @@ async function saveTeam(nextTeam, nextRelics, closeAfterSave) {
     previousRelicCopies = localStorage.getItem(TEAM_RELIC_COPIES_KEY);
     capturedPreviousRelicCopies = true;
     persistTeamRelicCopies(nextTeam, nextRelics);
+=======
+
+  try {
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
     const result = await fetchJson('/team', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ids: nextTeam.map(character => character ? character.id : null),
+<<<<<<< HEAD
         relics: getUniqueRelicIds(getRelicIds(nextRelics)),
       }),
     });
     currentTeam = result.team;
     currentRelics = nextRelics;
+=======
+        relics: nextRelics.map(row => row.map(relic => relic ? relic.id : null)),
+      }),
+    });
+    currentTeam = result.team;
+    currentRelics = result.relics;
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
     renderTeam();
     renderCharacters();
     showError('');
@@ -363,6 +403,7 @@ async function saveTeam(nextTeam, nextRelics, closeAfterSave) {
     if (closeAfterSave) closePicker();
     return true;
   } catch (error) {
+<<<<<<< HEAD
     let message = error.message;
     if (capturedPreviousRelicCopies) {
       try {
@@ -376,6 +417,9 @@ async function saveTeam(nextTeam, nextRelics, closeAfterSave) {
       }
     }
     showError(message);
+=======
+    showError(error.message);
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
     renderTeam();
     document.getElementById('teamStatus').textContent = 'บันทึกทีมไม่สำเร็จ';
     document.getElementById('teamStatus').dataset.state = 'error';
@@ -438,6 +482,17 @@ async function chooseRelic(id, teamIndex, relicIndex) {
     showError('Relic ไม่ตรงกับประเภทช่องที่เลือก');
     return;
   }
+<<<<<<< HEAD
+=======
+  const alreadyEquipped = currentRelics[teamIndex].some((item, currentRelicIndex) =>
+    item && String(item.id) === String(relic.id) && currentRelicIndex !== relicIndex
+  );
+  if (alreadyEquipped) {
+    showError('ตัวละครเดียวกันใส่ Relic ชิ้นเดิมซ้ำไม่ได้');
+    renderRelics();
+    return;
+  }
+>>>>>>> a0752cc652c5f252ded58eab00b5735efdedd149
   const nextRelics = currentRelics.map(row => [...row]);
   nextRelics[teamIndex][relicIndex] = relic;
   if (await saveTeam([...currentTeam], nextRelics, false)) closeRelicPicker();
