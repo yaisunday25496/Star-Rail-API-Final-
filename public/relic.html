@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relic — Honkai: Star Rail Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, "TH Sarabun New", sans-serif; margin: 0; background: #0F172A; color: #F8FAFC; }
+    header { background: #1E1B4B; color: #fff; padding: 16px 24px; border-bottom: 2px solid #6366F1; }
+    header h1 { margin: 0; font-size: 20px; color: #E0E7FF; }
+    header p { margin: 4px 0 0; font-size: 13px; color: #A5B4FC; }
+    .header-nav { display: flex; gap: 16px; margin-top: 12px; }
+    .header-nav a { color: #E0E7FF; font-size: 13px; font-weight: bold; text-decoration: none; border-bottom: 1px solid #818CF8; padding-bottom: 3px; }
+    .header-nav a:hover, .header-nav a:focus { color: #fff; border-color: #fff; }
+    main { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    .panel { padding: 18px; border: 1px solid #334155; border-radius: 8px; background: #1E293B; }
+    .toolbar { display: flex; gap: 9px; margin-bottom: 14px; }
+    input, select { min-width: 0; padding: 9px 11px; border: 1px solid #475569; border-radius: 7px; background: #0F172A; color: #F8FAFC; font: inherit; }
+    input { flex: 1; }
+    #resultCount, #status { color: #94A3B8; font-size: 13px; }
+    #status { margin: 12px 0; }
+    #status[data-state="success"] { color: #86EFAC; }
+    #status[data-state="error"] { color: #FCA5A5; }
+    #status[data-state="empty"] { color: #FCD34D; }
+    #status[data-state="loading"] { color: #A5B4FC; }
+    #error { display: none; margin-bottom: 14px; padding: 10px; border-radius: 6px; background: #7F1D1D; color: #FCA5A5; font-size: 13px; }
+    #retryLoad[hidden] { display: none; }
+    .relic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: 12px; }
+    .relic-card { overflow: hidden; border: 1px solid #334155; border-radius: 9px; background: #172033; }
+    .relic-card img { display: block; width: 100%; height: 150px; background: #0F172A; object-fit: contain; }
+    .relic-content { padding: 12px; }
+    .relic-content h2 { margin: 0 0 7px; color: #E0E7FF; font-size: 16px; }
+    .relic-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .badge { padding: 3px 7px; border: 1px solid #475569; border-radius: 12px; color: #CBD5E1; font-size: 11px; }
+    .rarity { color: #FBBF24; }
+    .relic-content p { margin: 7px 0; color: #CBD5E1; font-size: 12px; line-height: 1.55; }
+    details { margin-top: 9px; border-top: 1px solid #334155; padding-top: 8px; color: #A5B4FC; font-size: 12px; }
+    summary { cursor: pointer; }
+    .empty { grid-column: 1 / -1; padding: 28px 8px; color: #94A3B8; text-align: center; }
+    @media (max-width: 600px) {
+      header { padding: 16px; }
+      main { padding: 16px; }
+      .toolbar { flex-direction: column; }
+      .toolbar input, .toolbar select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Honkai: Star Rail Dashboard</h1>
+    <p>จัดการและดูข้อมูล Relic</p>
+    <nav class="header-nav" aria-label="เมนูหลัก">
+      <a href="/documentation.html">Documentation</a>
+      <a href="/dashboard.html#character-section">Characters</a>
+      <a href="/teams.html">Teams</a>
+      <a href="/relic.html" aria-current="page">Relic</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="panel" aria-label="รายการ Relic">
+      <div id="error" role="alert"></div>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="ค้นหาชื่อ Relic หรือเซ็ต..." aria-label="ค้นหา Relic">
+        <select id="typeFilter" aria-label="กรองตำแหน่ง">
+          <option value="all">ทุกตำแหน่ง</option>
+          <option value="HEAD">Head</option>
+          <option value="HAND">Hands</option>
+          <option value="BODY">Body</option>
+          <option value="FOOT">Feet</option>
+          <option value="NECK">Planar Sphere</option>
+          <option value="OBJECT">Link Rope</option>
+        </select>
+        <select id="rarityFilter" aria-label="กรองระดับดาว">
+          <option value="all">ทุกระดับดาว</option>
+          <option value="5">5 ดาว</option>
+          <option value="4">4 ดาว</option>
+          <option value="3">3 ดาว</option>
+          <option value="2">2 ดาว</option>
+          <option value="1">1 ดาว</option>
+        </select>
+      </div>
+      <p id="status" role="status" aria-live="polite">กำลังโหลดข้อมูล Relic...</p>
+      <button id="retryLoad" type="button" hidden>ลองโหลด Relic อีกครั้ง</button>
+      <p id="resultCount"></p>
+      <div id="relics" class="relic-grid" aria-live="polite"></div>
+    </section>
+  </main>
+  <script src="/relic.js"></script>
+</body>
+</html>

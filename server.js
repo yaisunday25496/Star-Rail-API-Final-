@@ -20,6 +20,47 @@ app.get('/', (req, res) => {
 });
 app.use(express.static(path.join(__dirname, 'public')));
 
+let relicCatalogPromise;
+
+function getRelicCatalog() {
+  if (!relicCatalogPromise) {
+    relicCatalogPromise = Promise.resolve().then(() => {
+      const { StarRail } = require('starrail.js');
+      const client = new StarRail();
+      return client.getAllRelics().map(relic => ({
+        id: relic.id,
+        name: relic.name.getNullable(),
+        description: relic.description.getNullable(),
+        type: relic.type.id,
+        stars: relic.stars,
+        maxLevel: relic.maxLevel,
+        icon: relic.icon.url,
+        figureIcon: relic.figureIcon.url,
+        set: {
+          id: relic.set.id,
+          name: relic.set.name.getNullable(),
+          bonuses: relic.set.setBonus.map(bonus => ({
+            needCount: bonus.needCount,
+            description: bonus.description.getNullable(),
+          })),
+        },
+      }));
+    });
+  }
+  return relicCatalogPromise;
+}
+
+app.get('/relics', async (req, res) => {
+  try {
+    const data = await getRelicCatalog();
+    res.json({ count: data.length, data });
+  } catch (error) {
+    relicCatalogPromise = null;
+    console.error('ไม่สามารถโหลดข้อมูล Relic ได้:', error);
+    res.status(503).json({ error: 'ไม่สามารถโหลดข้อมูล Relic ได้ในขณะนี้' });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', characters: characters.length });
 });
@@ -114,17 +155,62 @@ app.get('/characters', (req, res) => {
 // TODO 3 — Queue คิวตัวละครที่จัดลงทีม
 // ---------------------------------------------------------------------
 class Queue {
-  constructor() { this.items = []; }
-  enqueue(item) { this.items.push(item); }       // ต่อท้ายคิว
-  dequeue()     { return this.items.shift(); }   // ออกจากหัวคิว = FIFO
-  peek()        { return this.items[0]; }
-  size()        { return this.items.length; }
+  constructor() {
+    this.head = null;
+    this.tail = null;
+    this.length = 0;
+  }
+
+  enqueue(item) {
+    const node = { item, previous: this.tail, next: null };
+    if (this.tail) this.tail.next = node;
+    else this.head = node;
+    this.tail = node;
+    this.length++;
+  }
+
+  enqueueFront(item) {
+    const node = { item, previous: null, next: this.head };
+    if (this.head) this.head.previous = node;
+    else this.tail = node;
+    this.head = node;
+    this.length++;
+  }
+
+  dequeue() {
+    if (!this.head) return undefined;
+    const item = this.head.item;
+    this.head = this.head.next;
+    if (this.head) this.head.previous = null;
+    else this.tail = null;
+    this.length--;
+    return item;
+  }
+
+  removeLast() {
+    if (!this.tail) return undefined;
+    const item = this.tail.item;
+    this.tail = this.tail.previous;
+    if (this.tail) this.tail.next = null;
+    else this.head = null;
+    this.length--;
+    return item;
+  }
+
+  peek() { return this.head ? this.head.item : undefined; }
+  size() { return this.length; }
+
+  toArray() {
+    const items = [];
+    for (let node = this.head; node; node = node.next) items.push(node.item);
+    return items;
+  }
 }
 
 const watchlist = new Queue();
 
 app.get('/watchlist', (req, res) => {
-  res.json({ items: watchlist.items, size: watchlist.size(), next: watchlist.peek() || null });
+  res.json({ items: watchlist.toArray(), size: watchlist.size(), next: watchlist.peek() || null });
 });
 
 app.post('/watchlist', (req, res) => {
@@ -159,6 +245,115 @@ class Stack {
 }
 
 const history = new Stack();
+const selectedTeam = Array(4).fill(null);
+const RELIC_SLOT_TYPES = ['HEAD', 'HAND', 'BODY', 'FOOT', 'OBJECT', 'NECK'];
+const RELICS_PER_CHARACTER = RELIC_SLOT_TYPES.length;
+const teamRelics = Array.from({ length: 4 }, () => Array(RELICS_PER_CHARACTER).fill(null));
+
+app.get('/team', (req, res) => {
+  res.json({
+    team: selectedTeam,
+    relics: teamRelics,
+    size: selectedTeam.filter(Boolean).length,
+  });
+});
+
+app.put('/team', async (req, res) => {
+  const ids = req.body && req.body.ids;
+  if (!Array.isArray(ids) || ids.length !== 4) {
+    return res.status(400).json({ error: 'ทีมต้องมีช่องตัวละคร 4 ช่อง' });
+  }
+
+  const selectedIds = ids.filter(id => id !== null).map(String);
+  if (new Set(selectedIds).size !== selectedIds.length) {
+    return res.status(400).json({ error: 'เลือกตัวละครซ้ำในทีมไม่ได้' });
+  }
+
+  const nextTeam = ids.map(id => {
+    if (id === null) return null;
+    return characters.find(character => String(character.id) === String(id));
+  });
+  if (nextTeam.some((character, index) => ids[index] !== null && !character)) {
+    return res.status(404).json({ error: 'ไม่พบตัวละคร id นี้' });
+  }
+
+  let nextRelics = teamRelics.map((row, index) =>
+    String(nextTeam[index]?.id ?? '') === String(selectedTeam[index]?.id ?? '')
+      ? [...row]
+      : Array(RELICS_PER_CHARACTER).fill(null)
+  );
+  if (req.body.relics !== undefined) {
+    if (!Array.isArray(req.body.relics) || req.body.relics.length !== 4 ||
+        req.body.relics.some(row => !Array.isArray(row) ||
+          (row.length !== 4 && row.length !== RELICS_PER_CHARACTER))) {
+      return res.status(400).json({ error: 'ตัวละครแต่ละช่องต้องมีช่อง Relic 6 ช่อง' });
+    }
+
+    try {
+      const catalog = await getRelicCatalog();
+      const relicById = new Map(catalog.map(relic => [String(relic.id), relic]));
+      const relicIds = req.body.relics.map(row =>
+        [...row, ...Array(RELICS_PER_CHARACTER - row.length).fill(null)]
+      );
+      nextRelics = relicIds.map((row, teamIndex) =>
+        row.map((id, relicIndex) => {
+        if (id === null) return null;
+        if (!nextTeam[teamIndex]) return undefined;
+        const relic = relicById.get(String(id));
+        if (relic && relic.type !== RELIC_SLOT_TYPES[relicIndex]) return undefined;
+        return relic;
+      }));
+      if (nextRelics.some((row, teamIndex) =>
+        row.some((relic, relicIndex) =>
+          relicIds[teamIndex][relicIndex] !== null && !relic
+        )
+      )) {
+        return res.status(400).json({ error: 'Relic ไม่ตรงกับประเภทช่อง หรือช่องตัวละครยังว่าง' });
+      }
+      const selectedRelicIds = nextRelics.flatMap(row =>
+        row.filter(Boolean).map(relic => String(relic.id))
+      );
+      if (new Set(selectedRelicIds).size !== selectedRelicIds.length) {
+        return res.status(400).json({ error: 'เลือก Relic ซ้ำในทีมไม่ได้' });
+      }
+    } catch (error) {
+      relicCatalogPromise = null;
+      console.error('ไม่สามารถตรวจสอบ Relic ที่เลือกได้:', error);
+      return res.status(503).json({ error: 'ไม่สามารถโหลดข้อมูล Relic ได้ในขณะนี้' });
+    }
+  }
+
+  const teamUnchanged = nextTeam.every((character, index) =>
+    String(character?.id ?? '') === String(selectedTeam[index]?.id ?? '')
+  );
+  const relicsUnchanged = nextRelics.every((row, teamIndex) =>
+    row.every((relic, relicIndex) =>
+      String(relic?.id ?? '') === String(teamRelics[teamIndex][relicIndex]?.id ?? '')
+    )
+  );
+  if (teamUnchanged && relicsUnchanged) {
+    return res.json({
+      team: selectedTeam,
+      relics: teamRelics,
+      size: selectedTeam.filter(Boolean).length,
+    });
+  }
+
+  history.push({
+    action: 'TEAM',
+    team: [...selectedTeam],
+    relics: teamRelics.map(row => [...row]),
+    character: { name: 'ทีม' },
+    time: new Date().toLocaleTimeString('th-TH'),
+  });
+  selectedTeam.splice(0, selectedTeam.length, ...nextTeam);
+  teamRelics.splice(0, teamRelics.length, ...nextRelics);
+  res.json({
+    team: selectedTeam,
+    relics: teamRelics,
+    size: selectedTeam.filter(Boolean).length,
+  });
+});
 
 app.get('/history', (req, res) => {
   res.json({ history: history.display(), size: history.items.length });
@@ -170,12 +365,21 @@ app.post('/undo', (req, res) => {
   const last = history.pop();
 
   if (last.action === 'ADD') {
-    watchlist.items.pop();               // เอาตัวที่เพิ่งต่อท้ายออก
+    watchlist.removeLast();
   } else if (last.action === 'SELECT') {
-    watchlist.items.unshift(last.character);   // เอากลับไปไว้หัวคิว
+    watchlist.enqueueFront(last.character);
+  } else if (last.action === 'TEAM') {
+    selectedTeam.splice(0, selectedTeam.length, ...last.team);
+    if (last.relics) teamRelics.splice(0, teamRelics.length, ...last.relics);
   }
 
-  res.json({ message: `ย้อน ${last.action} ของ ${last.character.name} แล้ว`, size: watchlist.size() });
+  const message = last.action === 'TEAM'
+    ? 'ย้อนการจัดทีมแล้ว'
+    : `ย้อน ${last.action} ของ ${last.character.name} แล้ว`;
+  const size = last.action === 'TEAM'
+    ? selectedTeam.filter(Boolean).length
+    : watchlist.size();
+  res.json({ message, size, teamSize: selectedTeam.filter(Boolean).length });
 });
 
 // ---------------------------------------------------------------------

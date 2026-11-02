@@ -15,10 +15,12 @@
     .header-nav a:hover, .header-nav a:focus { color: #fff; border-color: #fff; }
     html { scroll-behavior: smooth; }
     #character-section { scroll-margin-top: 16px; }
-    .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px 24px; }
+    .layout { display: grid; grid-template-columns: 1fr; gap: 16px; padding: 16px 24px; }
     .panel { background: #1E293B; border-radius: 8px; padding: 14px; border: 1px solid #334155; }
     .panel h2 { margin: 0 0 10px; font-size: 15px; color: #818CF8; border-bottom: 2px solid #312E81; padding-bottom: 6px; }
     #error { display: none; background: #7F1D1D; color: #FCA5A5; padding: 10px; margin: 0 24px; border-radius: 6px; font-size: 13px; }
+    #notice { display: none; background: #14532D; color: #BBF7D0; padding: 10px; margin: 0 24px; border-radius: 6px; font-size: 13px; }
+    #notice a { color: #DCFCE7; font-weight: bold; }
     .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
     select, input, button { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid #475569; background: #0F172A; color: #F8FAFC; cursor: pointer; }
     input { min-width: 180px; flex: 1; cursor: text; }
@@ -32,6 +34,21 @@
     .card .info { display: flex; flex-direction: column; flex: 1; }
     .card .meta { font-size: 12px; color: #94A3B8; }
     .card .eps { font-size: 12px; color: #F59E0B; font-weight: bold; }
+    .status-line { min-height: 20px; margin: 8px 0; color: #94A3B8; font-size: 13px; }
+    .status-line[data-state="success"] { color: #86EFAC; }
+    .status-line[data-state="error"] { color: #FCA5A5; }
+    .status-line[data-state="empty"] { color: #FCD34D; }
+    .queue-list, .related-list { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+    .queue-item, .related-item { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid #334155; border-radius: 8px; background: #172033; }
+    .queue-item img, .related-item img { width: 40px; height: 40px; border-radius: 6px; background: #0F172A; object-fit: cover; }
+    .queue-item span, .related-item span { flex: 1; }
+    .queue-item small, .related-item small { display: block; margin-top: 3px; color: #94A3B8; }
+    .queue-actions { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .queue-actions button, .related-item button { flex: 0 0 auto; }
+    .graph-note { color: #94A3B8; font-size: 12px; line-height: 1.5; }
+    .related-section { margin-top: 18px; border-top: 1px solid #334155; padding-top: 14px; }
+    .related-section h3 { margin: 0 0 8px; color: #818CF8; font-size: 15px; }
+    .related-item button { padding: 5px 9px; }
     ul { list-style: none; padding: 0; margin: 0; font-size: 13px; }
     li { padding: 6px 4px; border-bottom: 1px solid #334155; color: #E2E8F0; }
     li span { float: right; color: #94A3B8; font-size: 11px; }
@@ -60,10 +77,13 @@
     <nav class="header-nav" aria-label="เมนูหลัก">
       <a href="/documentation.html">Documentation</a>
       <a href="#character-section">Characters</a>
+      <a href="/teams.html">Teams</a>
+      <a href="/relic.html">Relic</a>
     </nav>
   </header>
 
   <div id="error"></div>
+  <div id="notice" role="status"></div>
 
   <div class="layout">
     <div id="character-section" class="panel">
@@ -82,6 +102,8 @@
         </select>
         <span id="sortInfo"></span>
       </div>
+      <p id="characterStatus" class="status-line" role="status" aria-live="polite">กำลังโหลดข้อมูลตัวละคร...</p>
+      <button id="retryCharacters" type="button" hidden>ลองโหลดตัวละครอีกครั้ง</button>
       <div class="stats">
         <span class="stat">แสดงผล <b id="visibleCount">0</b> ตัวละคร</span>
         <span class="stat">ทั้งหมด <b id="totalCount">0</b> ตัวละคร</span>
@@ -89,23 +111,18 @@
       <div id="characters" class="card-list"></div>
     </div>
 
-    <div>
-      <div class="panel" style="margin-bottom:16px">
-        <h2>คิวจัดทีม <span class="badge" id="queueSize">0</span></h2>
-        <div class="toolbar">
-          <button class="primary" onclick="processQueue()">เลือกเข้าต่อสู้ (dequeue)</button>
-        </div>
-        <ul id="watchlist"></ul>
+    <section id="watchlist-panel" class="panel" aria-labelledby="queueHeading">
+      <h2 id="queueHeading">คิวตัวละคร</h2>
+      <p class="graph-note">เพิ่มตัวละครจากรายการด้านบน แล้วประมวลผลตัวถัดไปตามลำดับ FIFO ได้ที่นี่</p>
+      <a href="#watchlist-panel">ไปที่คิวตัวละคร</a>
+      <div class="queue-actions">
+        <button id="processQueue" class="primary" type="button" disabled>ประมวลผลตัวถัดไป</button>
+        <button id="retryQueue" type="button" hidden>ลองโหลดคิวอีกครั้ง</button>
+        <span id="queueCount">0 รายการ</span>
       </div>
-
-      <div class="panel">
-        <h2>ประวัติ (Stack)</h2>
-        <div class="toolbar">
-          <button class="warn" onclick="undo()">↩ Undo (pop)</button>
-        </div>
-        <ul id="history"></ul>
-      </div>
-    </div>
+      <p id="queueStatus" class="status-line" role="status" aria-live="polite">กำลังโหลดคิว...</p>
+      <ol id="watchlistItems" class="queue-list" aria-live="polite"></ol>
+    </section>
   </div>
 
   <div id="characterModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalName" onclick="if (event.target === this) closeCharacterModal()">
@@ -120,9 +137,15 @@
         <dt>สาย (Path)</dt><dd id="modalPath"></dd>
         <dt>ธาตุ (Element)</dt><dd id="modalElement"></dd>
       </dl>
+      <section class="related-section" aria-labelledby="graphHeading">
+        <h3 id="graphHeading">ตัวละครที่เชื่อมโยงใน Graph</h3>
+        <p id="graphSummary" class="graph-note"></p>
+        <ul id="relatedCharacters" class="related-list" aria-live="polite"></ul>
+      </section>
     </div>
   </div>
 
   <script src="dashboard.js"></script>
+  <script src="dashboard-experience.js"></script>
 </body>
 </html>
